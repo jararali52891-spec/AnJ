@@ -13,8 +13,7 @@
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
-        "CAMERA",
-        "FLASHLIGHT"
+        "CAMERA"
       ]
     },
     "plugins": [
@@ -32,6 +31,11 @@
           "cameraPermission": "Allow camera access to measure your heart rate."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "73fab910-1735-4f08-a809-e37682828f13"
+      }
+    }
   }
 }
