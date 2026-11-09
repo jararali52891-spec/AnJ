@@ -6,11 +6,18 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "icon": "./logo.png",
     "splash": {
-      "backgroundColor": "#09090b"
+      "image": "./logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
     },
     "android": {
       "package": "com.jararaamna.sync",
+      "adaptiveIcon": {
+        "foregroundImage": "./logo.png",
+        "backgroundColor": "#000000"
+      },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
