@@ -6,6 +6,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#09090b"
+    },
     "android": {
       "package": "com.jararaamna.sync",
       "permissions": [
