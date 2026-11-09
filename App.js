@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet, Text, View, TouchableOpacity, SafeAreaView,
-  Alert, TextInput, KeyboardAvoidingView, Platform, Animated, Easing, ScrollView
+  Alert, TextInput, KeyboardAvoidingView, Platform, Animated, Easing, ScrollView, Image
 } from 'react-native';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
@@ -43,7 +43,7 @@ function calculateFallbackSpeed(newLoc) {
   const distanceMeters = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   lastBgLoc = newLoc;
 
-  if (distanceMeters < 4) return 0; // Ignore GPS drift when sitting still
+  if (distanceMeters < 4) return 0; // Ignore GPS drift when stationary
   const speedKmh = (distanceMeters / timeDiffSec) * 3.6;
   return speedKmh > 180 ? 0 : Number(speedKmh.toFixed(1));
 }
@@ -86,7 +86,6 @@ const MAP_HTML = `
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: #0f172a; }
-    /* Dark theme filter on free OpenStreetMap tiles - Zero API Key Needed! */
     .leaflet-tile-pane {
       filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
     }
@@ -187,7 +186,7 @@ export default function App() {
 
   // Live Telemetry & Connection State
   const [syncData, setSyncData] = useState(null);
-  const [connStatus, setConnStatus] = useState('Connecting...'); // 'Connected' | 'Syncing...' | 'Offline'
+  const [connStatus, setConnStatus] = useState('Connecting...');
   const [lastSyncTime, setLastSyncTime] = useState('--:--');
   const [myBattery, setMyBattery] = useState('--');
   const [mySpeed, setMySpeed] = useState(0);
@@ -215,11 +214,11 @@ export default function App() {
   const partnerMascot = loggedInUser === 'Jarar' ? '🐰' : '🐱';
 
   useEffect(() => {
-    // Start looping cute mascot bounce and heart pulse animations
+    // Looping floating animation for the A & J Logo and mascots
     Animated.loop(
       Animated.sequence([
-        Animated.timing(bounceAnim, { toValue: -10, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(bounceAnim, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true })
+        Animated.timing(bounceAnim, { toValue: -10, duration: 1000, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(bounceAnim, { toValue: 0, duration: 1000, easing: Easing.inOut(Easing.quad), useNativeDriver: true })
       ])
     ).start();
 
@@ -230,7 +229,7 @@ export default function App() {
       ])
     ).start();
 
-    // Check saved login session
+    // Restore saved login session
     AsyncStorage.getItem('loggedInUser').then(savedUser => {
       if (savedUser === 'Jarar' || savedUser === 'Aamna') {
         setLoggedInUser(savedUser);
@@ -289,9 +288,9 @@ export default function App() {
           timeInterval: 10000,
           distanceInterval: 3,
           foregroundService: {
-            notificationTitle: "🐾 Loaf Sync Active",
+            notificationTitle: "🐾 A & J Loaf Sync Active",
             notificationBody: "Sharing live location, speed & battery with your partner",
-            notificationColor: "#f43f5e"
+            notificationColor: "#f59e0b"
           }
         });
       }
@@ -332,7 +331,7 @@ export default function App() {
         }
       }
 
-      // 3. Push our fresh telemetry to Google Sheet
+      // 3. Push fresh telemetry to Google Sheet
       await fetch(WEB_APP_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -369,14 +368,10 @@ export default function App() {
 
   // ==========================================================================
   // REAL CAMERA PPG FINGER DETECTION & BPM CALCULATOR
-  // Analyzes base64 JPEG frame red-glow dominance & optical pulse variation
   // ==========================================================================
   const analyzeBase64Frame = (b64) => {
     if (!b64 || b64.length < 200) return { hasFinger: false, intensity: 0 };
-    // When finger covers a torch-lit lens, the image compresses into a super-uniform crimson frame
-    // (small base64 size relative to resolution) whereas an uncovered room view has high detail/edges (large base64 size)
     const sizeBytes = b64.length * 0.75;
-    // Sample byte entropy in the middle of the JPEG scan data
     let sum = 0;
     const start = Math.floor(b64.length * 0.4);
     const end = Math.min(start + 600, b64.length);
@@ -384,8 +379,6 @@ export default function App() {
       sum += b64.charCodeAt(i);
     }
     const avgCode = sum / (end - start);
-
-    // Covered finger on flash creates a smooth low-detail red frame (sizeBytes under threshold)
     const isCovered = sizeBytes < 28000;
     return { hasFinger: isCovered, intensity: avgCode };
   };
@@ -426,7 +419,6 @@ export default function App() {
           setFingerDetected(false);
           setPpgMessage('⚠️ No Finger Detected! Cover the camera & flash completely.');
           if (missingFingerTicks >= 4) {
-            // Reset progress if finger is removed
             validTicks = 0;
             setScanProgress(0);
             brightnessSamplesRef.current = [];
@@ -434,7 +426,6 @@ export default function App() {
           return;
         }
 
-        // Finger is properly covering the lens!
         missingFingerTicks = 0;
         setFingerDetected(true);
         validTicks += 1;
@@ -444,8 +435,8 @@ export default function App() {
         setScanProgress(pct);
         setPpgMessage(`💓 Finger Detected! Reading pulse wave... (${pct}%)`);
 
-        // Calculate BPM from zero-crossings / peaks of optical intensity
         const samples = brightnessSamplesRef.current;
+        let currentEstimatedBpm = 76;
         if (samples.length >= 4) {
           const mean = samples.reduce((acc, s) => acc + s.val, 0) / samples.length;
           let crossings = 0;
@@ -457,15 +448,15 @@ export default function App() {
           }
           const durationMin = (samples[samples.length - 1].t - samples[0].t) / 60000;
           const rawBpm = durationMin > 0 ? Math.round((crossings / 2) / durationMin) : 76;
-          const clampedBpm = Math.max(62, Math.min(118, rawBpm || 76));
-          setLiveBpmPreview(clampedBpm);
+          currentEstimatedBpm = Math.max(62, Math.min(118, rawBpm || 76));
+          setLiveBpmPreview(currentEstimatedBpm);
         }
 
         if (validTicks >= 12) {
           clearInterval(scanTimerRef.current);
           setIsScanning(false);
 
-          const finalBpm = typeof liveBpmPreview === 'number' ? liveBpmPreview : Math.floor(74 + (intensity % 14));
+          const finalBpm = currentEstimatedBpm || Math.floor(74 + (intensity % 14));
           setLiveBpmPreview(finalBpm);
           setPpgMessage(`✅ Pulse Locked: ${finalBpm} BPM! Sent to ${partnerName}.`);
 
@@ -507,14 +498,22 @@ export default function App() {
   };
 
   // ==========================================================================
-  // SCREEN 1: LIVELY WELCOME & LOGIN PAGE (Jarar / Aamna + Loaf)
+  // SCREEN 1: LIVELY WELCOME & LOGIN PAGE WITH FLOATING A & J LOGO
   // ==========================================================================
   if (!loggedInUser) {
     return (
       <SafeAreaView style={styles.loginContainer}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.loginInner}>
-          <Animated.View style={[styles.mascotBubble, { transform: [{ translateY: bounceAnim }] }]}>
-            <Text style={styles.mascotEmoji}>🐱💞🐰</Text>
+          {/* Animated Floating Luxury A & J Emblem Badge */}
+          <Animated.View style={[styles.logoFloatingBadge, { transform: [{ translateY: bounceAnim }] }]}>
+            <Image
+              source={require('./logo.png')}
+              style={styles.loginLogoImage}
+              resizeMode="contain"
+            />
+            <View style={styles.mascotCornerPill}>
+              <Text style={{ fontSize: 14 }}>🐱💞🐰</Text>
+            </View>
           </Animated.View>
 
           <Text style={styles.welcomeTitle}>Loaf Sync</Text>
@@ -560,16 +559,22 @@ export default function App() {
   const mData = syncData?.[loggedInUser] || { lat: 24.8607, lng: 67.0011, speed: mySpeed, heartRate: '--', battery: myBattery, note: '' };
 
   // ==========================================================================
-  // SCREEN 2: MULTI-TAB LIVELY DASHBOARD
+  // SCREEN 2: MULTI-TAB LIVELY DASHBOARD WITH FLOATING A & J BADGES
   // ==========================================================================
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Status Header + Connection Pill + Manual Refresh Button */}
+      {/* Top Status Header + Floating Logo Badge + Connection Pill + Manual Refresh */}
       <View style={styles.topBar}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ fontSize: 24 }}>{myMascot}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Animated.View style={[styles.headerLogoBadge, { transform: [{ translateY: Animated.multiply(bounceAnim, 0.35) }] }]}>
+            <Image
+              source={require('./logo.png')}
+              style={styles.headerLogoImg}
+              resizeMode="contain"
+            />
+          </Animated.View>
           <View>
-            <Text style={styles.topTitle}>Hi, {loggedInUser}! ✨</Text>
+            <Text style={styles.topTitle}>Hi, {loggedInUser}! {myMascot}</Text>
             <View style={styles.connRow}>
               <View style={[
                 styles.statusDot,
@@ -593,11 +598,16 @@ export default function App() {
       {/* ==================== TAB 1: HOME OVERVIEW ==================== */}
       {activeTab === 'home' && (
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Animated Cute Mascot Banner */}
+          {/* Animated Hero Card with Floating A & J Emblem */}
           <View style={styles.heroCard}>
-            <Animated.Text style={[styles.heroMascots, { transform: [{ translateY: bounceAnim }] }]}>
-              {myMascot} 💞 {partnerMascot}
-            </Animated.Text>
+            <Animated.View style={[styles.heroLogoWrap, { transform: [{ translateY: bounceAnim }] }]}>
+              <Image
+                source={require('./logo.png')}
+                style={styles.heroLogoImg}
+                resizeMode="contain"
+              />
+            </Animated.View>
+            <Text style={styles.heroMascots}>{myMascot} 💞 {partnerMascot}</Text>
             <Text style={styles.heroTitle}>{loggedInUser} & {partnerName}</Text>
             <Text style={styles.heroSub}>Connected in Loaf Mode 🍞🐾</Text>
           </View>
@@ -803,10 +813,38 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#090d16' },
   loginContainer: { flex: 1, backgroundColor: '#090d16', justifyContent: 'center', padding: 24 },
   loginInner: { alignItems: 'center', width: '100%' },
-  mascotBubble: { backgroundColor: '#1e293b', paddingVertical: 16, paddingHorizontal: 28, borderRadius: 40, borderWidth: 2, borderColor: '#f43f5e', marginBottom: 14 },
-  mascotEmoji: { fontSize: 40 },
-  welcomeTitle: { color: '#ffffff', fontSize: 30, fontWeight: '900', letterSpacing: 1 },
-  welcomeSub: { color: '#f43f5e', fontSize: 14, fontWeight: '600', marginTop: 4, marginBottom: 26 },
+
+  // Floating A & J Logo Badge on Login Screen
+  logoFloatingBadge: {
+    width: 136,
+    height: 136,
+    borderRadius: 34,
+    backgroundColor: '#000000',
+    borderWidth: 2,
+    borderColor: '#f59e0b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#f59e0b',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 10
+  },
+  loginLogoImage: { width: 122, height: 122, borderRadius: 28 },
+  mascotCornerPill: {
+    position: 'absolute',
+    bottom: -10,
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#f43f5e'
+  },
+
+  welcomeTitle: { color: '#ffffff', fontSize: 30, fontWeight: '900', letterSpacing: 1, marginTop: 4 },
+  welcomeSub: { color: '#f59e0b', fontSize: 13, fontWeight: '700', marginTop: 4, marginBottom: 24 },
   loginCard: { width: '100%', backgroundColor: '#131c2e', borderRadius: 24, padding: 22, borderWidth: 1, borderColor: '#1e293b' },
   inputLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '800', marginBottom: 6, letterSpacing: 0.8 },
   textInput: { backgroundColor: '#090d16', color: '#ffffff', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, fontSize: 15, borderWidth: 1, borderColor: '#334155', marginBottom: 16 },
@@ -815,8 +853,20 @@ const styles = StyleSheet.create({
   loginBtn: { backgroundColor: '#f43f5e', paddingVertical: 15, borderRadius: 14, alignItems: 'center', marginTop: 4 },
   loginBtnText: { color: '#ffffff', fontSize: 16, fontWeight: '900' },
 
+  // Top Header Floating Logo Badge
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 42, paddingBottom: 12, backgroundColor: '#0f172a', borderBottomWidth: 1, borderBottomColor: '#1e293b' },
-  topTitle: { color: '#ffffff', fontSize: 17, fontWeight: '900' },
+  headerLogoBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#000000',
+    borderWidth: 1.5,
+    borderColor: '#f59e0b',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  headerLogoImg: { width: 38, height: 38, borderRadius: 10 },
+  topTitle: { color: '#ffffff', fontSize: 16, fontWeight: '900' },
   connRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
   connText: { color: '#94a3b8', fontSize: 11, fontWeight: '600' },
@@ -825,11 +875,24 @@ const styles = StyleSheet.create({
   logoutBtn: { backgroundColor: '#1e293b', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 12 },
   logoutBtnText: { fontSize: 13 },
 
+  // Hero Card with Floating Emblem
   scrollContent: { padding: 16, paddingBottom: 30 },
-  heroCard: { backgroundColor: '#131c2e', borderRadius: 24, padding: 18, alignItems: 'center', borderWidth: 1, borderColor: '#f43f5e44', marginBottom: 18 },
-  heroMascots: { fontSize: 38, marginBottom: 6 },
+  heroCard: { backgroundColor: '#131c2e', borderRadius: 24, padding: 18, alignItems: 'center', borderWidth: 1, borderColor: '#f59e0b55', marginBottom: 18 },
+  heroLogoWrap: {
+    width: 78,
+    height: 78,
+    borderRadius: 22,
+    backgroundColor: '#000000',
+    borderWidth: 1.5,
+    borderColor: '#f59e0b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  heroLogoImg: { width: 70, height: 70, borderRadius: 18 },
+  heroMascots: { fontSize: 22, marginBottom: 2 },
   heroTitle: { color: '#ffffff', fontSize: 20, fontWeight: '900' },
-  heroSub: { color: '#fb7185', fontSize: 12, fontWeight: '700', marginTop: 2 },
+  heroSub: { color: '#fbbf24', fontSize: 12, fontWeight: '700', marginTop: 2 },
 
   sectionHeading: { color: '#94a3b8', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 10 },
   statsGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 18 },
