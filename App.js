@@ -11,8 +11,8 @@ import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ============================================================================
-// PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BELOW:
-const WEB_APP_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE";
+// GOOGLE APPS SCRIPT WEB APP URL (PRE-CONFIGURED):
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby9caJpo8DY0qtnzQmP9lS4EZj7I3Z3_NKfW9MisbcI5jz9Jpt1ae90ngpv-Zln_HsM/exec";
 // ============================================================================
 
 const LOCATION_TASK_NAME = 'background-location-task';
@@ -297,13 +297,10 @@ export default function App() {
     } catch (e) {}
   };
 
-  // Immediate Foreground Push (Fixes stuck 100% battery & 0 km/h speed) + Pull Partner State
+  // Immediate Foreground Push + Pull Partner State
   const pushAndFetchNow = async (userOverride, silent = false) => {
     const currentUser = userOverride || loggedInUser;
-    if (!currentUser || WEB_APP_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
-      setConnStatus('Set Script URL');
-      return;
-    }
+    if (!currentUser) return;
 
     if (!silent) setConnStatus('Syncing...');
 
